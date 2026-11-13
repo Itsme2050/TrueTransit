@@ -1,0 +1,15 @@
+{
+  "name": "truetransit",
+  "version": "1.0.0",
+  "description": "TrueTransit - AI-Powered Navigation, Anti-Scam Price Index, and Chrono-Safety Platform",
+  "private": true,
+  "scripts": {
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "build:backend": "npm --prefix backend run build",
+    "build:frontend": "npm --prefix frontend run build",
+    "build": "npm run build:backend && npm run build:frontend",
+    "test": "npm --prefix backend test",
+    "test:api": "npm --prefix backend run test:api"
+  }
+}

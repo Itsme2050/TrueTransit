@@ -1,0 +1,248 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id                String             @id @default(uuid())
+  email             String             @unique
+  passwordHash      String
+  fullName          String
+  role              String             @default("USER") // USER, MODERATOR, ADMIN
+  preferredLanguage String             @default("en") // en, hi
+  emergencyNote     String?
+  bloodGroup        String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  priceReports      PriceReport[]
+  safetyReports     SafetyReport[]
+  itineraries       Itinerary[]
+  emergencyContacts EmergencyContact[]
+  savedRoutes       SavedRoute[]
+  auditLogs         AuditLog[]
+  moderationActions ModerationRecord[]
+}
+
+model Locality {
+  id               String            @id @default(uuid())
+  name             String
+  city             String            @default("Delhi")
+  state            String            @default("Delhi")
+  latitude         Float
+  longitude        Float
+  radiusMeters     Float             @default(2000)
+  zoneType         String            @default("COMMERCIAL") // COMMERCIAL, RESIDENTIAL, TRANSIT_HUB, TOURIST
+  description      String?
+  createdAt        DateTime          @default(now())
+
+  priceReferences  PriceReference[]
+  safetyIndicators SafetyIndicator[]
+  emergencyFacilities EmergencyFacility[]
+  priceReports     PriceReport[]
+}
+
+model PriceReference {
+  id             String    @id @default(uuid())
+  localityId     String
+  locality       Locality  @relation(fields: [localityId], references: [id], onDelete: Cascade)
+  category       String    // TRANSPORT, FOOD, COMMODITY, SERVICE
+  itemName       String    // e.g. "Auto Rickshaw Base", "Mineral Water 1L", "Chole Bhature"
+  minPrice       Float
+  maxPrice       Float
+  typicalPrice   Float
+  currency       String    @default("INR")
+  pricingModel   String    @default("FIXED") // FIXED, PER_KM, HOURLY
+  formulaParams  String?   // JSON string storing baseFare, perKm, nightSurchargePct, etc.
+  source         String    // "Delhi Transport Dept Notification", "Local Market Survey"
+  confidence     Float     @default(0.95)
+  lastVerifiedAt DateTime  @default(now())
+  createdAt      DateTime  @default(now())
+
+  reports        PriceReport[]
+}
+
+model PriceReport {
+  id               String          @id @default(uuid())
+  userId           String?
+  user             User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  localityId       String
+  locality         Locality        @relation(fields: [localityId], references: [id], onDelete: Cascade)
+  priceReferenceId String?
+  priceReference   PriceReference? @relation(fields: [priceReferenceId], references: [id], onDelete: SetNull)
+  category         String
+  itemName         String
+  quotedPrice      Float
+  paidPrice        Float?
+  currency         String          @default("INR")
+  vendorName       String?
+  receiptUrl       String?
+  notes            String?
+  status           String          @default("PENDING") // PENDING, APPROVED, REJECTED, EXPIRED
+  isOutlier        Boolean         @default(false)
+  confidenceScore  Float           @default(0.8)
+  timeOfDay        String?         // MORNING, AFTERNOON, EVENING, NIGHT
+  reportedAt       DateTime        @default(now())
+  clientUuid       String?         @unique // for idempotent offline sync replay
+
+  moderationRecords ModerationRecord[]
+}
+
+model SafetyIndicator {
+  id            String   @id @default(uuid())
+  localityId    String
+  locality      Locality @relation(fields: [localityId], references: [id], onDelete: Cascade)
+  latitude      Float
+  longitude     Float
+  indicatorType String   // STREET_LIGHTING, TRANSIT_PROXIMITY, PEDESTRIAN_VITALITY, POLICE_PRESENCE, HAZARD
+  hourStart     Int      @default(0)  // 0 - 23
+  hourEnd       Int      @default(23) // 0 - 23
+  baseWeight    Float    // -100 to +100 (positive is safer, negative is elevated concern)
+  description   String
+  source        String   // "Municipal Lighting Audit", "Crowdsourced Survey", "Police Advisory"
+  confidence    Float    @default(0.9)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model SafetyReport {
+  id          String   @id @default(uuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  latitude    Float
+  longitude   Float
+  localityName String?
+  category    String   // POOR_LIGHTING, ISOLATED_AREA, HARASSMENT, INFRASTRUCTURE_HAZARD, SCAM_HOTSPOT
+  severity    String   @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+  status      String   @default("ACTIVE") // ACTIVE, RESOLVED, REJECTED, EXPIRED
+  description String
+  upvotes     Int      @default(1)
+  reportedAt  DateTime @default(now())
+  expiresAt   DateTime?
+  clientUuid  String?  @unique // for offline sync
+
+  moderationRecords ModerationRecord[]
+}
+
+model SavedRoute {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title           String
+  originName      String
+  originLat       Float
+  originLng       Float
+  destinationName String
+  destLat         Float
+  destLng         Float
+  routeType       String   // FASTEST, SAFEST, BALANCED
+  distanceKm      Float
+  durationMinutes Int
+  safetyScore     Float
+  waypointsJson   String   // JSON string of coordinates
+  instructionsJson String  // JSON string of step-by-step turns
+  createdAt       DateTime @default(now())
+}
+
+model Itinerary {
+  id                 String          @id @default(uuid())
+  userId             String?
+  user               User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  title              String
+  city               String          @default("Delhi")
+  startingPoint      String
+  destination        String
+  totalBudget        Float
+  estimatedCost      Float
+  durationHours      Float
+  purpose            String          @default("EXPLORATION") // MEDICAL, BUSINESS, TOURISM, SHOPPING
+  transportPreference String         @default("BALANCED") // AUTO, CAB, METRO, WALKING, BALANCED
+  rawGeminiPrompt    String?
+  isValidated        Boolean         @default(true)
+  budgetVariance     Float           @default(0.0)
+  disclaimer         String?
+  createdAt          DateTime        @default(now())
+
+  stops              ItineraryStop[]
+}
+
+model ItineraryStop {
+  id             String    @id @default(uuid())
+  itineraryId    String
+  itinerary      Itinerary @relation(fields: [itineraryId], references: [id], onDelete: Cascade)
+  orderIndex     Int
+  placeName      String
+  category       String    // TRANSIT, FOOD, ATTRACTION, APPOINTMENT, BREAK
+  arrivalTime    String    // e.g. "10:00 AM"
+  departureTime  String    // e.g. "11:15 AM"
+  activityCost   Float     @default(0)
+  transportCost  Float     @default(0)
+  travelMethod   String    @default("Metro / Auto")
+  safetyNote     String?
+  address        String?
+  latitude       Float?
+  longitude      Float?
+}
+
+model EmergencyFacility {
+  id          String   @id @default(uuid())
+  localityId  String?
+  locality    Locality? @relation(fields: [localityId], references: [id], onDelete: SetNull)
+  name        String
+  type        String   // HOSPITAL, POLICE_STATION, PHARMACY, EMBASSY
+  address     String
+  phone       String
+  latitude    Float
+  longitude   Float
+  is24Hours   Boolean  @default(true)
+  verifiedAt  DateTime @default(now())
+}
+
+model EmergencyContact {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contactName  String
+  phoneNumber  String
+  relationship String   @default("Family")
+  priority     Int      @default(1)
+  createdAt    DateTime @default(now())
+}
+
+model ModerationRecord {
+  id             String        @id @default(uuid())
+  moderatorId    String
+  moderator      User          @relation(fields: [moderatorId], references: [id], onDelete: Cascade)
+  targetType     String        // PRICE_REPORT, SAFETY_REPORT
+  priceReportId  String?
+  priceReport    PriceReport?  @relation(fields: [priceReportId], references: [id], onDelete: Cascade)
+  safetyReportId String?
+  safetyReport   SafetyReport? @relation(fields: [safetyReportId], references: [id], onDelete: Cascade)
+  actionTaken    String        // APPROVED, REJECTED, FLAGGED_OUTLIER, EXPIRED
+  reason         String?
+  createdAt      DateTime      @default(now())
+}
+
+model SyncRecord {
+  id           String   @id @default(uuid())
+  clientUuid   String   @unique
+  entityType   String   // PRICE_REPORT, SAFETY_REPORT, SAVED_ROUTE
+  status       String   // SYNCED, CONFLICT, REJECTED
+  errorMessage String?
+  createdAt    DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  resource  String
+  ipAddress String?
+  details   String?
+  createdAt DateTime @default(now())
+}

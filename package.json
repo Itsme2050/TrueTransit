@@ -11,5 +11,8 @@
     "build": "npm run build:backend && npm run build:frontend",
     "test": "npm --prefix backend test",
     "test:api": "npm --prefix backend run test:api"
+  },
+  "devDependencies": {
+    "vercel": "^65.16.0"
   }
 }

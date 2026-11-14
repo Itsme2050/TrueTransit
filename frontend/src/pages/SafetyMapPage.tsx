@@ -131,6 +131,8 @@ export const SafetyMapPage: React.FC<SafetyMapPageProps> = ({ onOpenReportModal,
   const [showDestSuggestions, setShowDestSuggestions] = useState(false);
 
   const [locatingUser, setLocatingUser] = useState(false);
+  const [isSearchingOrigin, setIsSearchingOrigin] = useState(false);
+  const [isSearchingDest, setIsSearchingDest] = useState(false);
   const [geoResultsOrigin, setGeoResultsOrigin] = useState<GeocodedPlace[]>([]);
   const [geoResultsDest, setGeoResultsDest] = useState<GeocodedPlace[]>([]);
 
@@ -145,27 +147,43 @@ export const SafetyMapPage: React.FC<SafetyMapPageProps> = ({ onOpenReportModal,
   // Live address search debouncing for custom entries
   useEffect(() => {
     const clean = originInput.trim().toLowerCase();
-    if (clean.length < 2 || COMPREHENSIVE_LANDMARKS[originInput.trim()]) {
+    if (clean.length < 2) {
       setGeoResultsOrigin([]);
+      setIsSearchingOrigin(false);
       return;
     }
+    setIsSearchingOrigin(true);
     const tId = setTimeout(async () => {
-      const res = await GeocodingService.searchAddresses(clean);
-      setGeoResultsOrigin(res);
-    }, 300);
+      try {
+        const res = await GeocodingService.searchAddresses(clean);
+        setGeoResultsOrigin(res);
+      } catch (err) {
+        console.error('Error searching origin:', err);
+      } finally {
+        setIsSearchingOrigin(false);
+      }
+    }, 250);
     return () => clearTimeout(tId);
   }, [originInput]);
 
   useEffect(() => {
     const clean = destInput.trim().toLowerCase();
-    if (clean.length < 2 || COMPREHENSIVE_LANDMARKS[destInput.trim()]) {
+    if (clean.length < 2) {
       setGeoResultsDest([]);
+      setIsSearchingDest(false);
       return;
     }
+    setIsSearchingDest(true);
     const tId = setTimeout(async () => {
-      const res = await GeocodingService.searchAddresses(clean);
-      setGeoResultsDest(res);
-    }, 300);
+      try {
+        const res = await GeocodingService.searchAddresses(clean);
+        setGeoResultsDest(res);
+      } catch (err) {
+        console.error('Error searching destination:', err);
+      } finally {
+        setIsSearchingDest(false);
+      }
+    }, 250);
     return () => clearTimeout(tId);
   }, [destInput]);
 
@@ -334,6 +352,7 @@ export const SafetyMapPage: React.FC<SafetyMapPageProps> = ({ onOpenReportModal,
       }
     }
     setOrigin(val, coords);
+    setOriginInput(val);
     calculateRoutesWithCoords(val, coords, destName, destCoords);
   };
 
@@ -349,6 +368,7 @@ export const SafetyMapPage: React.FC<SafetyMapPageProps> = ({ onOpenReportModal,
       }
     }
     setDestination(val, coords);
+    setDestInput(val);
     calculateRoutesWithCoords(originName, originCoords, val, coords);
   };
 
@@ -587,10 +607,17 @@ export const SafetyMapPage: React.FC<SafetyMapPageProps> = ({ onOpenReportModal,
 
               {/* Suggestions Dropdown for Origin */}
               {showOriginSuggestions && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-2xl shadow-2xl z-50 max-h-64 overflow-y-auto divide-y divide-slate-100 animate-fadeIn">
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-2xl shadow-2xl z-50 max-h-72 overflow-y-auto divide-y divide-slate-100 animate-fadeIn">
                   <div className="px-3 py-1.5 bg-slate-50 text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
                     <span>Suggestions for "{originInput}"</span>
-                    <span>{originSuggestions.length + geoResultsOrigin.length} found</span>
+                    {isSearchingOrigin ? (
+                      <span className="flex items-center space-x-1 text-teal-600 lowercase font-medium">
+                        <span className="w-2.5 h-2.5 border-2 border-teal-600 border-t-transparent rounded-full animate-spin" />
+                        <span>searching Google Maps...</span>
+                      </span>
+                    ) : (
+                      <span>{originSuggestions.length + geoResultsOrigin.length} found</span>
+                    )}
                   </div>
 
                   {originSuggestions.length > 0 && (
@@ -607,7 +634,7 @@ export const SafetyMapPage: React.FC<SafetyMapPageProps> = ({ onOpenReportModal,
                         >
                           <MapPin className="w-3.5 h-3.5 text-teal-600 mt-0.5 flex-shrink-0" />
                           <div className="flex-1 min-w-0">
-                            <div className="truncate">{loc}</div>
+                            <div className="truncate font-semibold">{loc}</div>
                             {info && (
                               <div className="text-[10px] text-slate-400 truncate font-normal">
                                 {info.category ? `[${info.category}] ` : ''}{info.desc}
@@ -619,31 +646,43 @@ export const SafetyMapPage: React.FC<SafetyMapPageProps> = ({ onOpenReportModal,
                     })
                   )}
 
-                  {/* Geocoded Verified Addresses */}
+                  {/* Google Maps & Geocoded Verified Addresses */}
                   {geoResultsOrigin.length > 0 && (
                     <div className="bg-teal-50/60 p-1 divide-y divide-teal-100/70 border-t border-slate-100">
                       <div className="px-2.5 py-1 text-[9px] uppercase font-bold text-teal-800 tracking-wider flex items-center space-x-1">
                         <Compass className="w-3 h-3 text-teal-600" />
-                        <span>Verified Addresses & Sectors (NCR & OpenStreetMap)</span>
+                        <span>Google Maps & Live Locations</span>
                       </div>
                       {geoResultsOrigin.map((geo, idx) => (
                         <button
                           key={idx}
                           type="button"
-                          onClick={() => handleSelectOrigin(geo.name, { lat: geo.lat, lng: geo.lng })}
-                          className="w-full text-left px-3 py-2 text-xs hover:bg-teal-100/80 text-slate-900 flex items-start space-x-2 transition-colors"
+                          onClick={() => handleSelectOrigin(geo.displayName || geo.name, { lat: geo.lat, lng: geo.lng })}
+                          className="w-full text-left px-3 py-2 text-xs hover:bg-teal-100/80 text-slate-900 flex items-start space-x-2 transition-colors cursor-pointer"
                         >
                           <MapPin className="w-3.5 h-3.5 text-teal-600 mt-0.5 flex-shrink-0" />
                           <div className="flex-1 min-w-0">
-                            <div className="font-bold truncate">{geo.name}</div>
-                            <div className="text-[10px] text-slate-500 truncate">{geo.displayName}</div>
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold truncate text-slate-900">{geo.name}</span>
+                              <span className="text-[9px] px-1.5 py-0.2 rounded font-bold uppercase tracking-wider bg-teal-100 text-teal-800 ml-2 flex-shrink-0">
+                                {geo.category || 'Google Maps'}
+                              </span>
+                            </div>
+                            <div className="text-[10px] text-slate-500 truncate mt-0.5">{geo.displayName}</div>
                           </div>
                         </button>
                       ))}
                     </div>
                   )}
 
-                  {originSuggestions.length === 0 && geoResultsOrigin.length === 0 && (
+                  {isSearchingOrigin && originSuggestions.length === 0 && geoResultsOrigin.length === 0 && (
+                    <div className="px-3 py-4 text-xs text-slate-500 text-center flex items-center justify-center space-x-2">
+                      <span className="w-3.5 h-3.5 border-2 border-teal-600 border-t-transparent rounded-full animate-spin" />
+                      <span>Searching Google Maps & NCR locations...</span>
+                    </div>
+                  )}
+
+                  {!isSearchingOrigin && originSuggestions.length === 0 && geoResultsOrigin.length === 0 && (
                     <div className="px-3 py-3 text-xs text-slate-400 text-center">
                       No matching landmarks. Click below to use as custom location.
                     </div>
@@ -654,12 +693,12 @@ export const SafetyMapPage: React.FC<SafetyMapPageProps> = ({ onOpenReportModal,
                     <button
                       type="button"
                       onClick={() => handleSelectOrigin(originInput.trim())}
-                      className="w-full text-left px-3 py-2.5 text-xs bg-teal-50 hover:bg-teal-100 font-bold text-teal-900 flex items-center space-x-2 transition-colors border-t border-slate-100"
+                      className="w-full text-left px-3 py-2.5 text-xs bg-teal-50 hover:bg-teal-100 font-bold text-teal-900 flex items-center space-x-2 transition-colors border-t border-slate-100 cursor-pointer"
                     >
                       <Compass className="w-3.5 h-3.5 text-teal-600 flex-shrink-0 animate-pulse" />
                       <div className="flex-1 min-w-0">
                         <div className="truncate">📍 Route from custom location: "{originInput.trim()}"</div>
-                        <div className="text-[10px] font-normal text-teal-600">Resolves exact coordinates and recalculates route on map</div>
+                        <div className="text-[10px] font-normal text-teal-600">Resolves exact coordinates via Google Maps and recalculates route</div>
                       </div>
                     </button>
                   )}
@@ -751,10 +790,17 @@ export const SafetyMapPage: React.FC<SafetyMapPageProps> = ({ onOpenReportModal,
 
               {/* Suggestions Dropdown for Destination */}
               {showDestSuggestions && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-2xl shadow-2xl z-50 max-h-64 overflow-y-auto divide-y divide-slate-100 animate-fadeIn">
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-2xl shadow-2xl z-50 max-h-72 overflow-y-auto divide-y divide-slate-100 animate-fadeIn">
                   <div className="px-3 py-1.5 bg-slate-50 text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
                     <span>Suggestions for "{destInput}"</span>
-                    <span>{destSuggestions.length + geoResultsDest.length} found</span>
+                    {isSearchingDest ? (
+                      <span className="flex items-center space-x-1 text-teal-600 lowercase font-medium">
+                        <span className="w-2.5 h-2.5 border-2 border-teal-600 border-t-transparent rounded-full animate-spin" />
+                        <span>searching Google Maps...</span>
+                      </span>
+                    ) : (
+                      <span>{destSuggestions.length + geoResultsDest.length} found</span>
+                    )}
                   </div>
 
                   {destSuggestions.length > 0 && (
@@ -771,7 +817,7 @@ export const SafetyMapPage: React.FC<SafetyMapPageProps> = ({ onOpenReportModal,
                         >
                           <MapPin className="w-3.5 h-3.5 text-teal-600 mt-0.5 flex-shrink-0" />
                           <div className="flex-1 min-w-0">
-                            <div className="truncate">{loc}</div>
+                            <div className="truncate font-semibold">{loc}</div>
                             {info && (
                               <div className="text-[10px] text-slate-400 truncate font-normal">
                                 {info.category ? `[${info.category}] ` : ''}{info.desc}
@@ -783,31 +829,43 @@ export const SafetyMapPage: React.FC<SafetyMapPageProps> = ({ onOpenReportModal,
                     })
                   )}
 
-                  {/* Geocoded Verified Addresses */}
+                  {/* Google Maps & Geocoded Verified Addresses */}
                   {geoResultsDest.length > 0 && (
                     <div className="bg-teal-50/60 p-1 divide-y divide-teal-100/70 border-t border-slate-100">
                       <div className="px-2.5 py-1 text-[9px] uppercase font-bold text-teal-800 tracking-wider flex items-center space-x-1">
                         <Compass className="w-3 h-3 text-teal-600" />
-                        <span>Verified Addresses & Sectors (NCR & OpenStreetMap)</span>
+                        <span>Google Maps & Live Locations</span>
                       </div>
                       {geoResultsDest.map((geo, idx) => (
                         <button
                           key={idx}
                           type="button"
-                          onClick={() => handleSelectDest(geo.name, { lat: geo.lat, lng: geo.lng })}
-                          className="w-full text-left px-3 py-2 text-xs hover:bg-teal-100/80 text-slate-900 flex items-start space-x-2 transition-colors"
+                          onClick={() => handleSelectDest(geo.displayName || geo.name, { lat: geo.lat, lng: geo.lng })}
+                          className="w-full text-left px-3 py-2 text-xs hover:bg-teal-100/80 text-slate-900 flex items-start space-x-2 transition-colors cursor-pointer"
                         >
                           <MapPin className="w-3.5 h-3.5 text-teal-600 mt-0.5 flex-shrink-0" />
                           <div className="flex-1 min-w-0">
-                            <div className="font-bold truncate">{geo.name}</div>
-                            <div className="text-[10px] text-slate-500 truncate">{geo.displayName}</div>
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold truncate text-slate-900">{geo.name}</span>
+                              <span className="text-[9px] px-1.5 py-0.2 rounded font-bold uppercase tracking-wider bg-teal-100 text-teal-800 ml-2 flex-shrink-0">
+                                {geo.category || 'Google Maps'}
+                              </span>
+                            </div>
+                            <div className="text-[10px] text-slate-500 truncate mt-0.5">{geo.displayName}</div>
                           </div>
                         </button>
                       ))}
                     </div>
                   )}
 
-                  {destSuggestions.length === 0 && geoResultsDest.length === 0 && (
+                  {isSearchingDest && destSuggestions.length === 0 && geoResultsDest.length === 0 && (
+                    <div className="px-3 py-4 text-xs text-slate-500 text-center flex items-center justify-center space-x-2">
+                      <span className="w-3.5 h-3.5 border-2 border-teal-600 border-t-transparent rounded-full animate-spin" />
+                      <span>Searching Google Maps & NCR locations...</span>
+                    </div>
+                  )}
+
+                  {!isSearchingDest && destSuggestions.length === 0 && geoResultsDest.length === 0 && (
                     <div className="px-3 py-3 text-xs text-slate-400 text-center">
                       No matching landmarks. Click below to use as custom location.
                     </div>
@@ -818,12 +876,12 @@ export const SafetyMapPage: React.FC<SafetyMapPageProps> = ({ onOpenReportModal,
                     <button
                       type="button"
                       onClick={() => handleSelectDest(destInput.trim())}
-                      className="w-full text-left px-3 py-2.5 text-xs bg-teal-50 hover:bg-teal-100 font-bold text-teal-900 flex items-center space-x-2 transition-colors border-t border-slate-100"
+                      className="w-full text-left px-3 py-2.5 text-xs bg-teal-50 hover:bg-teal-100 font-bold text-teal-900 flex items-center space-x-2 transition-colors border-t border-slate-100 cursor-pointer"
                     >
                       <Compass className="w-3.5 h-3.5 text-teal-600 flex-shrink-0 animate-pulse" />
                       <div className="flex-1 min-w-0">
                         <div className="truncate">📍 Route to custom location: "{destInput.trim()}"</div>
-                        <div className="text-[10px] font-normal text-teal-600">Resolves exact coordinates and recalculates route on map</div>
+                        <div className="text-[10px] font-normal text-teal-600">Resolves exact coordinates via Google Maps and recalculates route</div>
                       </div>
                     </button>
                   )}

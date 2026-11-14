@@ -6,23 +6,17 @@ interface BottomNavProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   onOpenSOS: () => void;
-  isPhoneFrame?: boolean;
 }
 
 export const BottomNav: React.FC<BottomNavProps> = ({
   activeTab,
   setActiveTab,
   onOpenSOS,
-  isPhoneFrame = false,
 }) => {
   const { t } = useLanguage();
 
-  const containerClass = isPhoneFrame
-    ? 'absolute bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 py-2 px-3 flex items-center justify-around shadow-2xl rounded-b-[42px]'
-    : 'md:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-900 border-t border-slate-800 py-2 px-3 flex items-center justify-around shadow-2xl';
-
   return (
-    <div className={containerClass}>
+    <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-900 border-t border-slate-800 py-2 px-3 flex items-center justify-around shadow-2xl">
       <button
         onClick={() => setActiveTab('dashboard')}
         className={`flex flex-col items-center justify-center p-1 rounded-lg transition-colors ${

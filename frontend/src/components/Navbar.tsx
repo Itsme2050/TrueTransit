@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Shield, Wifi, WifiOff, Globe, AlertTriangle, UserCheck, RefreshCw, Smartphone, Monitor, ChevronDown } from 'lucide-react';
+import { Shield, Wifi, WifiOff, Globe, AlertTriangle, UserCheck, RefreshCw, ChevronDown } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useOffline } from '../context/OfflineContext';
 import { useLanguage, LANGUAGES, Language } from '../context/LanguageContext';
@@ -8,16 +8,12 @@ interface NavbarProps {
   onOpenSOS: () => void;
   activeTab: string;
   setActiveTab: (tab: string) => void;
-  viewMode?: 'wide' | 'phone';
-  onToggleViewMode?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   onOpenSOS,
   activeTab,
   setActiveTab,
-  viewMode = 'wide',
-  onToggleViewMode,
 }) => {
   const { user, isGuest, isAdmin } = useAuth();
   const { effectiveOnline, isSimulatedOffline, toggleSimulatedOffline, pendingCount, syncNow } = useOffline();
@@ -67,77 +63,54 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </div>
 
-          {/* Center Navigation Links for Desktop (only if wide mode or desktop screen) */}
-          {viewMode === 'wide' && (
-            <nav className="hidden md:flex items-center space-x-1">
+          {/* Center Navigation Links for Desktop */}
+          <nav className="hidden md:flex items-center space-x-1">
+            <button
+              onClick={() => setActiveTab('dashboard')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                activeTab === 'dashboard' ? 'bg-teal-600 text-white' : 'text-slate-300 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              {t('dashboard')}
+            </button>
+            <button
+              onClick={() => setActiveTab('price-check')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                activeTab === 'price-check' ? 'bg-teal-600 text-white' : 'text-slate-300 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              {t('priceCheck')}
+            </button>
+            <button
+              onClick={() => setActiveTab('safety-map')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                activeTab === 'safety-map' ? 'bg-teal-600 text-white' : 'text-slate-300 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              {t('safetyMap')}
+            </button>
+            <button
+              onClick={() => setActiveTab('itinerary')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                activeTab === 'itinerary' ? 'bg-teal-600 text-white' : 'text-slate-300 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              {t('smartItinerary')}
+            </button>
+            {isAdmin && (
               <button
-                onClick={() => setActiveTab('dashboard')}
+                onClick={() => setActiveTab('admin')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                  activeTab === 'dashboard' ? 'bg-teal-600 text-white' : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                  activeTab === 'admin' ? 'bg-amber-600 text-white' : 'text-amber-300 hover:text-white hover:bg-slate-800'
                 }`}
               >
-                {t('dashboard')}
-              </button>
-              <button
-                onClick={() => setActiveTab('price-check')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                  activeTab === 'price-check' ? 'bg-teal-600 text-white' : 'text-slate-300 hover:text-white hover:bg-slate-800'
-                }`}
-              >
-                {t('priceCheck')}
-              </button>
-              <button
-                onClick={() => setActiveTab('safety-map')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                  activeTab === 'safety-map' ? 'bg-teal-600 text-white' : 'text-slate-300 hover:text-white hover:bg-slate-800'
-                }`}
-              >
-                {t('safetyMap')}
-              </button>
-              <button
-                onClick={() => setActiveTab('itinerary')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                  activeTab === 'itinerary' ? 'bg-teal-600 text-white' : 'text-slate-300 hover:text-white hover:bg-slate-800'
-                }`}
-              >
-                {t('smartItinerary')}
-              </button>
-              {isAdmin && (
-                <button
-                  onClick={() => setActiveTab('admin')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                    activeTab === 'admin' ? 'bg-amber-600 text-white' : 'text-amber-300 hover:text-white hover:bg-slate-800'
-                  }`}
-                >
-                  {t('adminModeration')}
-                </button>
-              )}
-            </nav>
-          )}
-
-          {/* Right Action Icons: Phone/Wide Mode, Offline Sim, Sync, Multi-Language, SOS */}
-          <div className="flex items-center space-x-1.5 sm:space-x-2">
-            
-            {/* View Mode Switcher (Phone / Wide) */}
-            {onToggleViewMode && (
-              <button
-                onClick={onToggleViewMode}
-                title={viewMode === 'wide' ? 'Switch to Phone View (Mobile Mockup)' : 'Switch to Wide Desktop View'}
-                className="flex items-center space-x-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all border shadow-sm bg-gradient-to-r from-teal-500/10 to-indigo-500/10 border-teal-500/40 text-teal-300 hover:from-teal-500/20 hover:to-indigo-500/20"
-              >
-                {viewMode === 'wide' ? (
-                  <>
-                    <Smartphone className="w-3.5 h-3.5 text-teal-400" />
-                    <span className="hidden sm:inline">{t('phoneView')}</span>
-                  </>
-                ) : (
-                  <>
-                    <Monitor className="w-3.5 h-3.5 text-indigo-400" />
-                    <span className="hidden sm:inline">{t('wideView')}</span>
-                  </>
-                )}
+                {t('adminModeration')}
               </button>
             )}
+          </nav>
+
+          {/* Right Action Icons: Offline Sim, Sync, Multi-Language, SOS */}
+          <div className="flex items-center space-x-1.5 sm:space-x-2">
 
             {/* Offline Simulation Toggle Badge */}
             <button

@@ -1,6 +1,31 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import { SafetyHeatPoint, RouteAlternative } from '../types';
+
+export type GoogleMapType = 'streets' | 'satellite' | 'terrain' | 'traffic';
+
+const GOOGLE_TILE_LAYERS: Record<GoogleMapType, { url: string; label: string; maxZoom: number }> = {
+  streets: {
+    url: 'https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
+    label: 'Map',
+    maxZoom: 20,
+  },
+  satellite: {
+    url: 'https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+    label: 'Satellite',
+    maxZoom: 20,
+  },
+  terrain: {
+    url: 'https://{s}.google.com/vt/lyrs=p&x={x}&y={y}&z={z}',
+    label: 'Terrain',
+    maxZoom: 20,
+  },
+  traffic: {
+    url: 'https://{s}.google.com/vt/lyrs=m,traffic&x={x}&y={y}&z={z}',
+    label: 'Traffic',
+    maxZoom: 20,
+  },
+};
 
 interface MapViewProps {
   heatPoints?: SafetyHeatPoint[];
@@ -34,6 +59,9 @@ export const MapView: React.FC<MapViewProps> = ({
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const layerGroupRef = useRef<L.LayerGroup | null>(null);
+  const currentTileLayerRef = useRef<L.TileLayer | null>(null);
+
+  const [mapType, setMapType] = useState<GoogleMapType>('streets');
 
   const onSetOriginRef = useRef(onSetOriginFromCoords);
   const onSetDestRef = useRef(onSetDestFromCoords);
@@ -58,11 +86,14 @@ export const MapView: React.FC<MapViewProps> = ({
         zoomControl: true,
       });
 
-      // OpenStreetMap raster tiles
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        maxZoom: 19,
+      // Default to Google Maps Roadmap tiles
+      const config = GOOGLE_TILE_LAYERS.streets;
+      const initialTileLayer = L.tileLayer(config.url, {
+        attribution: '&copy; Google Maps',
+        subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+        maxZoom: config.maxZoom,
       }).addTo(map);
+      currentTileLayerRef.current = initialTileLayer;
 
       // Interactive Click on Map to Set Waypoints
       map.on('click', (e: L.LeafletMouseEvent) => {
@@ -336,9 +367,79 @@ export const MapView: React.FC<MapViewProps> = ({
     }
   }, [isActive]);
 
+  // Dynamically swap Google Maps tile layer (Map, Satellite, Terrain, Traffic)
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    const config = GOOGLE_TILE_LAYERS[mapType];
+    if (currentTileLayerRef.current) {
+      map.removeLayer(currentTileLayerRef.current);
+    }
+
+    const newTileLayer = L.tileLayer(config.url, {
+      attribution: '&copy; Google Maps',
+      subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+      maxZoom: config.maxZoom,
+    }).addTo(map);
+
+    currentTileLayerRef.current = newTileLayer;
+  }, [mapType]);
+
   return (
     <div className="relative w-full h-full rounded-2xl overflow-hidden shadow-inner border border-slate-200">
       <div ref={mapContainerRef} className="w-full h-full min-h-[380px]" />
+
+      {/* Google Maps Layer Switcher */}
+      <div className="absolute top-3 right-3 z-[400] bg-white/95 backdrop-blur-md p-1 rounded-xl border border-slate-200/90 shadow-md flex items-center space-x-1 pointer-events-auto">
+        <div className="hidden sm:flex items-center space-x-1 px-2 py-0.5 text-[10px] font-black text-blue-700 tracking-wider uppercase border-r border-slate-200 mr-0.5">
+          <span>Google Maps</span>
+        </div>
+        <button
+          type="button"
+          onClick={() => setMapType('streets')}
+          className={`px-2 py-1 rounded-lg text-xs font-bold transition-all ${
+            mapType === 'streets'
+              ? 'bg-blue-600 text-white shadow-xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+          }`}
+        >
+          Map
+        </button>
+        <button
+          type="button"
+          onClick={() => setMapType('satellite')}
+          className={`px-2 py-1 rounded-lg text-xs font-bold transition-all ${
+            mapType === 'satellite'
+              ? 'bg-blue-600 text-white shadow-xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+          }`}
+        >
+          Satellite
+        </button>
+        <button
+          type="button"
+          onClick={() => setMapType('terrain')}
+          className={`px-2 py-1 rounded-lg text-xs font-bold transition-all ${
+            mapType === 'terrain'
+              ? 'bg-blue-600 text-white shadow-xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+          }`}
+        >
+          Terrain
+        </button>
+        <button
+          type="button"
+          onClick={() => setMapType('traffic')}
+          className={`px-2 py-1 rounded-lg text-xs font-bold transition-all ${
+            mapType === 'traffic'
+              ? 'bg-blue-600 text-white shadow-xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+          }`}
+        >
+          Traffic
+        </button>
+      </div>
 
       {/* Active Pinning Mode Top Banner */}
       {pinningMode !== 'NONE' && (
@@ -363,7 +464,7 @@ export const MapView: React.FC<MapViewProps> = ({
 
       {/* Interactive Helper Banner */}
       {pinningMode === 'NONE' && (
-        <div className="absolute top-3 left-3 z-[400] bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-200 shadow-md text-[11px] text-slate-700 flex items-center space-x-2 pointer-events-auto">
+        <div className="absolute top-3 left-14 z-[400] bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-200 shadow-md text-[11px] text-slate-700 flex items-center space-x-2 pointer-events-auto">
           <span>💡</span>
           <span className="font-semibold text-slate-800">
             Click map or drag pins <strong className="text-emerald-700 font-extrabold">(A)</strong> / <strong className="text-rose-700 font-extrabold">(B)</strong> to adjust exact locations
